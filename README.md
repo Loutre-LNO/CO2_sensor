@@ -17,6 +17,7 @@
 ### Liste de Composants
 - TTGO T-Display (ESP32 + écran 1.14")
 - Capteur CO2 Sensirion SCD30
+- (Optionnel) Batterie Lithium 3.7V
 
 ### Câblage
 |ESP32 T-Display|SCD30|
