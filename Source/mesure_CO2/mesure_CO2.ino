@@ -6,6 +6,7 @@
 // Composants:
 // - TTGO T-Display (ESP32 + écran 1.14")
 // - Capteur CO2 Sensirion SCD30
+// - Batterie Lithium
 //
 // Câblage
 //    ESP32         SCD30
@@ -17,6 +18,7 @@
 // Bibliothèques
 // - TFT_eSPI (https://github.com/Bodmer/TFT_eSPI)
 // - SparkFun_SCD30_Arduino_Library (https://github.com/sparkfun/SparkFun_SCD30_Arduino_Library)
+// - Battery18650Stats (https://github.com/danilopinotti/Battery18650Stats)
 //
 // ****************************************************
 
@@ -24,7 +26,9 @@
 #include <TFT_eSPI.h>
 #include <SparkFun_SCD30_Arduino_Library.h> 
 #include <wire.h>
+#include <Battery18650Stats.h>
 #include "co2.h"
+#include "batt.h"
 
 
 #define PROGVER                     2.0     // Version du programme
@@ -41,7 +45,8 @@
 #define NB_CYCLES_ETALO             120     // Nombre de cyles pour l'étalonnage
 #define CDE_PIN                     0       // GPIO du bouton de commande
 #define SLEEP_PIN                   35      // GPIO du bouton de veille
-#define ADC_PIN                     34      // GPIO pour lecture de la tension
+#define BATTERY_PIN                 34      // GPIO pour lecture de la tension
+#define BATTERY_CF                  1.702   // Facteur de conversion pour la lecture de la tension de batterie
 #define TEMPSAPPUILONG              3000    // Nombre de millisecondes pour considérer qu'un appui sur le bouton de commande est long
 #define PAUSEINTERROCAPTEUR         500     // Nombre de millisecondes de pause entre deux interrogations de capteur
 #define NBENREGMAX                  200     // Nombre max d'enregistrements (< TFTW)
@@ -52,6 +57,7 @@
 
 TFT_eSPI tft = TFT_eSPI();
 SCD30 scd30;
+Battery18650Stats battery(BATTERY_PIN, BATTERY_CF);
 
 bool etalo;                 // Etalonnage en cours
 bool pincde;                // Etat de l'entrée du bouton de commande
@@ -69,6 +75,7 @@ uint32_t refcapteur;        // Temps de référence interrogation capteur
 float temperature;          // Température mesurée
 float humidite;             // Humidité mesurée
 float tension;              // Tension du système
+float niveaubatt;           // Niveau de batterie
 
 // --------------
 // Initialisation
@@ -195,9 +202,10 @@ void mesure()
 
   if (scd30.dataAvailable())
   {
-    // De nouvelles données duc apteur sont disponibles
-    // Lecture tension
-    tension = ((float)analogRead(ADC_PIN) / 4095.0) * 2.0 * 3.3 * (1100 / 1000.0);
+    // De nouvelles données du capteur sont disponibles
+    // Lecture tension et niveau batterie
+    tension = battery.getBatteryVolts();
+    niveaubatt = battery.getBatteryChargeLevel();
     // Lecture CO2
     taux_co2 = scd30.getCO2();
     // Bornage de la lecture du CO2 dans les valeurs nominales du capteur
@@ -286,9 +294,17 @@ void afficheEcran()
       tft.setTextSize(2);
       tft.setCursor(0, 0);
       tft.println("T: " + (String)temperature + "  H: " + (String)humidite + "%");
-      // Tension
-      tft.setCursor(0, 120);
-      tft.println((String)tension + "V");
+      // Niveau batterie
+      if (niveaubatt >= 100)
+        tft.pushImage(0,120,29,15,b5);
+      else if (niveaubatt >= 80)
+        tft.pushImage(0,120,29,15,b4);
+      else if (niveaubatt >= 50)
+        tft.pushImage(0,120,29,15,b3);
+      else if (niveaubatt >= 20)
+        tft.pushImage(0,120,29,15,b2);
+      else
+        tft.pushImage(0,120,29,15,b1);
       // CO2
       tft.setTextColor(tft.color565(RGBrouge, RGBvert, RGBbleu));
       tft.setCursor(150, 120);
@@ -392,6 +408,8 @@ void afficheEcran()
       tft.println("    BLEU  " + String(SEUIL_B));
       tft.println("    VERT  " + String(SEUIL_V));
       tft.println("    ROUGE " + String(SEUIL_R));
+      tft.println();
+      tft.println("Tension: " + String(tension) + "V");
     }
   }
 }

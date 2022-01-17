@@ -9,10 +9,11 @@
   - Affichage d'un graphique avec les 200 dernières mesures
 - Etalonnage (appui long sur bouton 2)
 - Mise en veille (Deep Sleep) (appui sur bouton 1)
+- Surveillance du niveau de la batterie
 
-![Photo1](https://github.com/Loutre-LNO/Mesure-CO2/blob/main/Photos/IMG_20220117_152548.jpg)
+![Photo1](https://github.com/Loutre-LNO/Mesure-CO2/blob/main/Photos/photo1.jpg)
 
-![Photo2](https://github.com/Loutre-LNO/Mesure-CO2/blob/main/Photos/IMG_20220117_152540.jpg)
+![Photo2](https://github.com/Loutre-LNO/Mesure-CO2/blob/main/Photos/photo2.jpg)
 
 
 ### Liste de Composants
