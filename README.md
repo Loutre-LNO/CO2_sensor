@@ -13,7 +13,7 @@ Composants:
 - TTGO T-Display (ESP32 + écran 1.14")
 - Capteur CO2 Sensirion SCD30
 
-Inspiré par
+Inspiré par:
 - https://github.com/fvanderbiest/arduino-sketches/tree/main/sketch_scd30_ssd1306_neopixel
 - http://nousaerons.fr/makersco2/
 
