@@ -4,10 +4,11 @@
 
 ### Fonctionnalités
 - Mesure toutes les 5 secondes du taux de CO2 dans l'air, de la température et du taux d'humidité
-- Affichage des valeurs instantanées avec un code couleur RGB proportionnel au taux de CO2
-- Affichage d'un graphique avec les 200 dernières mesures
-- Etalonnage
-- Mise en veille (Deep Sleep)
+- Deux modes d'affichage (appui sur bouton 2)
+  - Affichage des valeurs instantanées avec un code couleur RGB proportionnel au taux de CO2
+  - Affichage d'un graphique avec les 200 dernières mesures
+- Etalonnage (appui long sur bouton 2)
+- Mise en veille (Deep Sleep) (appui sur bouton 1)
 
 ![Photo1](https://github.com/Loutre-LNO/Mesure-CO2/blob/main/Photos/IMG_20220117_152548.jpg)
 
