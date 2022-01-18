@@ -1,7 +1,7 @@
 // ****************************************************
 // Mesure CO2
 // Noël Utter
-// Dernière mise à jour 17/01/2022
+// Dernière mise à jour 18/01/2022
 //
 // Composants:
 // - TTGO T-Display (ESP32 + écran 1.14")
@@ -20,6 +20,10 @@
 // - SparkFun_SCD30_Arduino_Library (https://github.com/sparkfun/SparkFun_SCD30_Arduino_Library)
 // - Battery18650Stats (https://github.com/danilopinotti/Battery18650Stats)
 //
+// Mises à jour
+// 18/01/2022 Modification des seuils d'affichage de niveeau de batterie
+//            Modification de la gestion des boutons
+//
 // ****************************************************
 
 #include <SPI.h>
@@ -31,7 +35,7 @@
 #include "batt.h"
 
 
-#define PROGVER                     2.0     // Version du programme
+#define PROGVER                     2.01    // Version du programme
 
 #define DELAI_MESURE                5       // Nombre de secondes entre deux mesures (2..1800)
 #define OFFSET_TEMPERATURE          3.7     // Compensation de température (en °C)
@@ -43,8 +47,8 @@
 #define SEUIL_R                     1000.0  // Valeur du CO2 avec couleur rouge pur
 
 #define NB_CYCLES_ETALO             120     // Nombre de cyles pour l'étalonnage
-#define CDE_PIN                     0       // GPIO du bouton de commande
-#define SLEEP_PIN                   35      // GPIO du bouton de veille
+#define BT2PIN                      0       // GPIO du bouton de commande
+#define BT1PIN                      35      // GPIO du bouton de veille
 #define BATTERY_PIN                 34      // GPIO pour lecture de la tension
 #define BATTERY_CF                  1.702   // Facteur de conversion pour la lecture de la tension de batterie
 #define TEMPSAPPUILONG              3000    // Nombre de millisecondes pour considérer qu'un appui sur le bouton de commande est long
@@ -54,14 +58,19 @@
 #define TFTH                        135     // Résolution Y
 #define TFTW                        240     // Résolution X
 #define ECHELLEMIN                  50      // Echelle mini du graphique
+#define SEUILBAT5                   100     // Seuil affichage batterie en charge
+#define SEUILBAT4                   70      // Seuil affichage batterie 4 barres
+#define SEUILBAT3                   40      // Seuil affichage batterie 3 barres
+#define SEUILBAT2                   10      // Seuil affichage batterie 2 barres
+
 
 TFT_eSPI tft = TFT_eSPI();
 SCD30 scd30;
 Battery18650Stats battery(BATTERY_PIN, BATTERY_CF);
 
 bool etalo;                 // Etalonnage en cours
-bool pincde;                // Etat de l'entrée du bouton de commande
-bool pinsleep;              // Etat de l'entrée du bouton de veille
+bool etatpinbt1;            // Etat de l'entrée du bouton 1
+bool etatpinbt2;            // Etat de l'entrée du bouton 2
 byte RGBrouge;              // Valeur du rouge
 byte RGBvert;               // Valeur du vert
 byte RGBbleu;               // Valeur du bleu
@@ -70,7 +79,8 @@ byte nbenreg;               // Nombre de mesures déjà enregistrées
 uint16_t delai_etalo;       // Nombre de cyles restant dans l'étalonnage
 uint16_t taux_co2;          // Taux de CO2 mesuré
 uint16_t enreg[NBENREGMAX]; // Enregistrements
-uint32_t refappuicde;       // Temps de référence appui sur le bouton de commande
+uint32_t refbt1;            // Temps de référence appui sur le bouton 1
+uint32_t refbt2;            // Temps de référence appui sur le bouton 2
 uint32_t refcapteur;        // Temps de référence interrogation capteur
 float temperature;          // Température mesurée
 float humidite;             // Humidité mesurée
@@ -85,13 +95,13 @@ void setup()
   uint16_t i;
   
   // Init pins
-  pinMode(CDE_PIN, INPUT_PULLUP);
-  pinMode(SLEEP_PIN, INPUT_PULLUP);
+  pinMode(BT1PIN, INPUT_PULLUP);
+  pinMode(BT2PIN, INPUT_PULLUP);
   
   // Init variables
   etalo = false;
-  pincde = true;
-  pinsleep = true;
+  etatpinbt1 = true;
+  etatpinbt2 = true;
   RGBrouge = 0;
   RGBvert = 0;
   RGBbleu = 0;
@@ -134,27 +144,14 @@ void setup()
 // ----------------
 void loop()
 {
-  if (digitalRead(SLEEP_PIN) != pinsleep)
+  if (digitalRead(BT1PIN) != etatpinbt1)
   {
-    // Détection du changement d'état du bouton de veille
-    pinsleep = not pinsleep;
-    if (pinsleep)
-    {
-      // Sur relâchement
-      // Mise en veille
-      scd30.StopMeasurement();
-      esp_sleep_enable_ext0_wakeup(GPIO_NUM_35,0);
-      esp_deep_sleep_start();
-    }
-  }
-  if (digitalRead(CDE_PIN) != pincde)
-  {
-    // Détection du changement d'état du bouton de commande
-    pincde = not pincde;
-    if (!pincde)
+    // Détection du changement d'état du bouton 1
+    etatpinbt1 = not etatpinbt1;
+    if (!etatpinbt1)
     {
       // Sur appui
-      refappuicde = millis();     // On sauvegarde le temps courant
+      refbt1 = millis();     // On sauvegarde le temps courant
     }
     else
     {
@@ -167,7 +164,46 @@ void loop()
       else
       {
         // En mode normal
-        if (millis() - refappuicde < TEMPSAPPUILONG)
+        if (millis() - refbt1 < TEMPSAPPUILONG)
+        {
+          // Appui court -> On change de mode d'affichage
+          if (modeaff > 1)
+            modeaff--;
+          else
+            modeaff = 3;
+        }
+        else
+        {
+          // Appui long -> Mise en veille
+          scd30.StopMeasurement();
+          esp_sleep_enable_ext0_wakeup((gpio_num_t)BT1PIN, 0);
+          esp_deep_sleep_start();
+        }
+      }
+      afficheEcran();
+    }
+  }
+  if (digitalRead(BT2PIN) != etatpinbt2)
+  {
+    // Détection du changement d'état du bouton 2
+    etatpinbt2 = not etatpinbt2;
+    if (!etatpinbt2)
+    {
+      // Sur appui
+      refbt2 = millis();     // On sauvegarde le temps courant
+    }
+    else
+    {
+      // Sur relâchement
+      if (etalo)
+      {
+        // Si un étalonnage est en cours, on l'arrête
+        etalo = false;
+      }
+      else
+      {
+        // En mode normal
+        if (millis() - refbt2 < TEMPSAPPUILONG)
         {
           // Appui court -> On change de mode d'affichage
           if (modeaff < 3)
@@ -295,13 +331,13 @@ void afficheEcran()
       tft.setCursor(0, 0);
       tft.println("T: " + (String)temperature + "  H: " + (String)humidite + "%");
       // Niveau batterie
-      if (niveaubatt >= 100)
+      if (niveaubatt >= SEUILBAT5)
         tft.pushImage(0,120,29,15,b5);
-      else if (niveaubatt >= 80)
+      else if (niveaubatt >= SEUILBAT4)
         tft.pushImage(0,120,29,15,b4);
-      else if (niveaubatt >= 50)
+      else if (niveaubatt >= SEUILBAT3)
         tft.pushImage(0,120,29,15,b3);
-      else if (niveaubatt >= 20)
+      else if (niveaubatt >= SEUILBAT2)
         tft.pushImage(0,120,29,15,b2);
       else
         tft.pushImage(0,120,29,15,b1);
