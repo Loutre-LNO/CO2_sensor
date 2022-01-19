@@ -10,6 +10,7 @@
 - Etalonnage (appui long sur bouton 2)
 - Mise en veille (Deep Sleep) (appui long sur bouton 1)
 - Surveillance du niveau de la batterie
+- Extinction automatique si batterie faible
 
 ![Photo1](https://github.com/Loutre-LNO/Mesure-CO2/blob/main/Photos/photo1.jpg)
 

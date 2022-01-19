@@ -1,7 +1,7 @@
 // ****************************************************
 // Mesure CO2
 // Noël Utter
-// Dernière mise à jour 18/01/2022
+// Dernière mise à jour 19/01/2022
 //
 // Composants:
 // - TTGO T-Display (ESP32 + écran 1.14")
@@ -21,8 +21,12 @@
 // - Battery18650Stats (https://github.com/danilopinotti/Battery18650Stats)
 //
 // Mises à jour
-// 18/01/2022 Modification des seuils d'affichage de niveeau de batterie
+// 18/01/2022 Ajustements seuils batterie
 //            Modification de la gestion des boutons
+// 19/01/2022 Limitation CO2 max à 9999
+//            Nettoyage code
+//            Ajustements seuils batterie
+//            Ajout extinction automatique si niveau batterie trop bas
 //
 // ****************************************************
 
@@ -35,7 +39,7 @@
 #include "batt.h"
 
 
-#define PROGVER                     2.01    // Version du programme
+#define PROGVER                     2.02    // Version du programme
 
 #define DELAI_MESURE                5       // Nombre de secondes entre deux mesures (2..1800)
 #define OFFSET_TEMPERATURE          3.7     // Compensation de température (en °C)
@@ -58,10 +62,11 @@
 #define TFTH                        135     // Résolution Y
 #define TFTW                        240     // Résolution X
 #define ECHELLEMIN                  50      // Echelle mini du graphique
-#define SEUILBAT5                   100     // Seuil affichage batterie en charge
-#define SEUILBAT4                   70      // Seuil affichage batterie 4 barres
-#define SEUILBAT3                   40      // Seuil affichage batterie 3 barres
-#define SEUILBAT2                   10      // Seuil affichage batterie 2 barres
+#define SEUILBAT5                   100     // Seuil affichage batterie en charge (correspond à 4,200V)
+#define SEUILBAT4                   65      // Seuil affichage batterie 4 barres (correspond à 3.928V)
+#define SEUILBAT3                   37      // Seuil affichage batterie 3 barres (correspond à 3.787V)
+#define SEUILBAT2                   8       // Seuil affichage batterie 2 barres (correspond à 3.600V)
+#define SEUILBATEXT                 6       // Seuil extinction du système (correspond à 3,500V)
 
 
 TFT_eSPI tft = TFT_eSPI();
@@ -76,6 +81,7 @@ byte RGBvert;               // Valeur du vert
 byte RGBbleu;               // Valeur du bleu
 byte modeaff;               // Mode d'affichage
 byte nbenreg;               // Nombre de mesures déjà enregistrées
+byte nblowbatt;             // Nombre de fois successives où le niveau de batterie a été trop bas
 uint16_t delai_etalo;       // Nombre de cyles restant dans l'étalonnage
 uint16_t taux_co2;          // Taux de CO2 mesuré
 uint16_t enreg[NBENREGMAX]; // Enregistrements
@@ -107,6 +113,7 @@ void setup()
   RGBbleu = 0;
   modeaff = 1;
   nbenreg = 0;
+  nblowbatt = 0;
   for (i=0; i<NBENREGMAX; i++)
     enreg[i] = 0;
  
@@ -131,6 +138,7 @@ void setup()
     tft.println("Capteur CO2 non detecte !");
     while (1);
   }
+
   // Paramétrage du SCD30
   scd30.setAutoSelfCalibration(false);
   scd30.setMeasurementInterval(DELAI_MESURE);                // Nombre de secondes entre chaque mesure
@@ -147,7 +155,7 @@ void loop()
   if (digitalRead(BT1PIN) != etatpinbt1)
   {
     // Détection du changement d'état du bouton 1
-    etatpinbt1 = not etatpinbt1;
+    etatpinbt1 = !etatpinbt1;
     if (!etatpinbt1)
     {
       // Sur appui
@@ -175,18 +183,17 @@ void loop()
         else
         {
           // Appui long -> Mise en veille
-          scd30.StopMeasurement();
-          esp_sleep_enable_ext0_wakeup((gpio_num_t)BT1PIN, 0);
-          esp_deep_sleep_start();
+          goDeepSleep();
         }
       }
       afficheEcran();
     }
   }
+
   if (digitalRead(BT2PIN) != etatpinbt2)
   {
     // Détection du changement d'état du bouton 2
-    etatpinbt2 = not etatpinbt2;
+    etatpinbt2 = !etatpinbt2;
     if (!etatpinbt2)
     {
       // Sur appui
@@ -221,11 +228,34 @@ void loop()
       afficheEcran();
     }
   }
+
   if (millis() - refcapteur >= PAUSEINTERROCAPTEUR)
   {
     // On n'interroge pas le capteur dans chaque cycle
     mesure();
     refcapteur = millis();  
+    if (niveaubatt <= SEUILBATEXT)
+    {
+      if (nblowbatt < 10)
+        nblowbatt++;
+      else
+      {
+        // Niveau de batterie au seuil le plus bas 10x d'affilée -> Mise en veille
+        tft.fillScreen(TFT_BLACK);
+        tft.setTextFont(1);
+        tft.setTextSize(2);
+        tft.setTextColor(TFT_RED);
+        tft.setCursor(0, 0);
+        tft.println("NIVEAU BATTERIE");
+        tft.println("TROP BAS");
+        tft.println("");
+        tft.println("EXTINCTION SYSTEME");
+        delay(5000);
+        goDeepSleep();
+      }
+    }
+    else
+      nblowbatt = 0;
   }
 }
 
@@ -247,12 +277,13 @@ void mesure()
     // Bornage de la lecture du CO2 dans les valeurs nominales du capteur
     if (taux_co2 < 400)
       taux_co2 = 400;
-    else if (taux_co2 > 10000)
-      taux_co2 = 10000;
+    else if (taux_co2 > 9999)
+      taux_co2 = 9999;
     // Lecture température
     temperature = scd30.getTemperature();
     // Lecture humidité
     humidite = scd30.getHumidity();
+    // Enregistrement de la valeur dans le tableau pour graphique
     if (nbenreg < NBENREGMAX)
     {
       // On n'a pas encore enregistré toutes les valeurs possibles
@@ -421,7 +452,7 @@ void afficheEcran()
     }
     else if (modeaff == 3)
     {
-      // Affichage paramètres
+      // Affichage paramètres et données système
       tft.setTextColor(TFT_WHITE);
       tft.setTextFont(1);
       tft.setTextSize(1);
@@ -445,14 +476,24 @@ void afficheEcran()
       tft.println("    VERT  " + String(SEUIL_V));
       tft.println("    ROUGE " + String(SEUIL_R));
       tft.println();
-      tft.println("Tension: " + String(tension) + "V");
+      tft.println("Tension: " + String(tension) + "V / Niveau: " + String(niveaubatt) + "%");
     }
   }
 }
 
-// -------------------------------------
-// Taduction de la valeur en couleur RVB
-// -------------------------------------
+// -----------------------
+// Mise en veille profonde
+// -----------------------
+void goDeepSleep()
+{
+  scd30.StopMeasurement();
+  esp_sleep_enable_ext0_wakeup((gpio_num_t)BT1PIN, 0);
+  esp_deep_sleep_start();
+}
+
+// --------------------------------------------
+// Taduction de la valeur de CO2 en couleur RVB
+// --------------------------------------------
 void setCouleur(uint16_t co2val)
 {
   float valeur = (float)co2val;
