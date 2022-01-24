@@ -12,9 +12,9 @@
 - Surveillance du niveau de la batterie
 - Extinction automatique si batterie faible
 
-![Photo1](https://github.com/Loutre-LNO/Mesure-CO2/blob/main/Photos/photo1.jpg)
+![Photo1](Photos/photo1.jpg)
 
-![Photo2](https://github.com/Loutre-LNO/Mesure-CO2/blob/main/Photos/photo2.jpg)
+![Photo2](Photos/photo2.jpg)
 
 
 ### Liste de Composants
