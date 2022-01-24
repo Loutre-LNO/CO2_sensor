@@ -36,3 +36,5 @@
 - https://github.com/fvanderbiest/arduino-sketches/tree/main/sketch_scd30_ssd1306_neopixel
 - http://nousaerons.fr/makersco2/
 
+### Licence
+Distribué sous [licence MIT](license.txt)
