@@ -1,28 +1,28 @@
-# Mesure-CO2
+# CO2 measurement
 
-## Mesure du CO2 avec ESP32 et capteur SCD30
+## CO2 measurement with ESP32 and SCD30 sensor
 
-### Fonctionnalités
-- Mesure toutes les 5 secondes du taux de CO2 dans l'air, de la température et du taux d'humidité
-- Deux modes d'affichage, navigation avec les boutons
-  - Affichage des valeurs instantanées avec un code couleur RGB proportionnel au taux de CO2
-  - Affichage d'un graphique avec les 200 dernières mesures
-- Etalonnage (appui long sur bouton 2)
-- Mise en veille (Deep Sleep) (appui long sur bouton 1)
-- Surveillance du niveau de la batterie
-- Extinction automatique si batterie faible
+### Features
+- Measurement every 5 seconds of the CO2 rate in the air, the temperature and the humidity rate
+- Two display modes, navigation with buttons
+  - Display of instantaneous values ​​with an RGB color code proportional to the CO2 level
+  - Display of a graph with the last 200 measurements
+- Calibration (long press on button 2)
+- Standby (Deep Sleep) (long press on button 1)
+- Battery level monitoring
+- Automatic shutdown if battery low
 
 ![Photo1](Photos/photo1.jpg)
 
 ![Photo2](Photos/photo2.jpg)
 
 
-### Liste de Composants
-- TTGO T-Display (ESP32 + écran 1.14")
-- Capteur CO2 Sensirion SCD30
-- (Optionnel) Batterie Lithium 3.7V
+### Parts list
+- TTGO T-Display (ESP32 + 1.14" screen)
+- Sensirion SCD30 CO2 sensor
+- (Optional) 3.7V Lithium Battery
 
-### Câblage
+### Wiring
 |ESP32 T-Display|SCD30|
 |-----|-----|
 |3V3|VIN|
@@ -32,9 +32,9 @@
 
 
 
-### Inspiré par
+### Inspired by
 - https://github.com/fvanderbiest/arduino-sketches/tree/main/sketch_scd30_ssd1306_neopixel
 - http://nousaerons.fr/makersco2/
 
 ### Licence
-Distribué sous [licence MIT](license.txt)
+Published under [MIT License](license.txt)
